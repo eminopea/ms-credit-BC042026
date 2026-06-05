@@ -1,0 +1,160 @@
+openapi: 3.0.3
+
+info:
+  title: Credit Service API
+  version: 1.0.0
+  description: Microservice for managing personal and business credits
+
+servers:
+  - url: http://localhost:8080/api
+
+tags:
+  - name: Credit
+    description: Credit operations
+
+paths:
+
+  # ✅ Crear crédito
+  /credits:
+    post:
+      tags: [Credit]
+      summary: Create a personal or business credit
+      operationId: createCredit
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BaseCreateCreditRequest'
+      responses:
+        '201':
+          description: Credit created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Credit'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  # ✅ Validación clave del sistema
+  /credits/customer/{documentNumber}/has-overdue-debt:
+    get:
+      tags: [Credit]
+      summary: Check if customer has overdue debt
+      operationId: hasOverdueDebt
+      parameters:
+        - name: documentNumber
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Result of validation
+          content:
+            application/json:
+              schema:
+                type: boolean
+                example: false
+
+components:
+
+  schemas:
+
+    # ✅ RESPUESTA ERROR
+    ErrorResponse:
+      type: object
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+
+    # ✅ ENUMS
+    CreditType:
+      type: string
+      enum: [PERSONAL, BUSINESS]
+
+    CreditStatus:
+      type: string
+      enum: [ACTIVE, PAID, OVERDUE]
+
+    # ✅ ENTIDAD BASE
+    Credit:
+      type: object
+      required:
+        - id
+        - customerDocumentNumber
+        - creditType
+        - amount
+        - balance
+        - status
+      discriminator:
+        propertyName: creditType
+        mapping:
+          PERSONAL: '#/components/schemas/PersonalCredit'
+          BUSINESS: '#/components/schemas/BusinessCredit'
+      properties:
+        id:
+          type: string
+        customerDocumentNumber:
+          type: string
+        creditType:
+          $ref: '#/components/schemas/CreditType'
+        amount:
+          type: number
+        balance:
+          type: number
+        status:
+          $ref: '#/components/schemas/CreditStatus'
+        createdAt:
+          type: string
+
+    # ✅ PERSONAL CREDIT
+    PersonalCredit:
+      allOf:
+        - $ref: '#/components/schemas/Credit'
+        - type: object
+          description: Personal credit (only one allowed per customer)
+
+    # ✅ BUSINESS CREDIT
+    BusinessCredit:
+      allOf:
+        - $ref: '#/components/schemas/Credit'
+        - type: object
+          description: Business credit (multiple allowed per customer)
+
+    # ✅ BASE REQUEST
+    BaseCreateCreditRequest:
+      type: object
+      required:
+        - customerDocumentNumber
+        - creditType
+        - amount
+      discriminator:
+        propertyName: cardType
+        mapping:
+          BUSINESS: '#/components/schemas/CreateBusinessCreditRequest'
+          PERSONAL: '#/components/schemas/CreatePersonalCreditRequest'
+
+      properties:
+        customerDocumentNumber:
+          type: string
+        creditType:
+          $ref: '#/components/schemas/CreditType'
+        amount:
+          type: number
+
+    # ✅ PERSONAL REQUEST
+    CreatePersonalCreditRequest:
+      allOf:
+        - $ref: '#/components/schemas/BaseCreateCreditRequest'
+
+    # ✅ BUSINESS REQUEST
+    CreateBusinessCreditRequest:
+      allOf:
+        - $ref: '#/components/schemas/BaseCreateCreditRequest'
